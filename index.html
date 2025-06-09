@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Pet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Press Start 2P', cursive;
+            background-color: #f0f8ff;
+            display: flex;
+            flex-direction: column; /* Stack items vertically */
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #333;
+            padding: 20px;
+        }
+        .pet-container {
+            background-color: #fff;
+            border: 4px solid #000;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1), 0 6px 6px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .pet-display {
+            background-color: #e0f0e0;
+            border: 2px solid #000;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .pet-face {
+            font-size: 80px;
+            transition: transform 0.2s;
+        }
+        .pet-face.happy { transform: scale(1.1); }
+        .pet-face.sad { transform: rotate(5deg); }
+        .pet-face.thinking { animation: thinking-pulse 1s infinite; }
+        @keyframes thinking-pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .speech-bubble {
+            position: absolute;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fff;
+            border: 2px solid #000;
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 12px;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+            width: 80%;
+            z-index: 10;
+        }
+        .speech-bubble.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .stat-bar-container {
+            width: 100%;
+            background-color: #e0e0e0;
+            border: 2px solid #000;
+            border-radius: 10px;
+            overflow: hidden;
+            height: 24px;
+        }
+        .stat-bar {
+            height: 100%;
+            transition: width 0.5s ease-in-out;
+            text-align: right;
+            padding-right: 5px;
+            font-size: 10px;
+            color: white;
+            text-shadow: 1px 1px 1px black;
+        }
+        .action-button {
+            background-color: #ffd700;
+            border: 2px solid #000;
+            border-radius: 10px;
+            padding: 10px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+            box-shadow: 0 4px #998100;
+            margin: 2px;
+        }
+        .action-button:hover {
+            background-color: #ffec80;
+        }
+        .action-button:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px #998100;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border: 4px solid #000;
+            border-radius: 15px;
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+        }
+        .modal-input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #000;
+            border-radius: 8px;
+            font-family: 'Press Start 2P', cursive;
+            margin-bottom: 15px;
+        }
+        .hidden {
+            display: none;
+        }
+        .customize-button-external {
+            margin-top: 20px;
+            padding: 12px 24px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="pet-container">
+        <h1 class="text-2xl mb-4">My AI Pet</h1>
+        
+        <div class="pet-display">
+            <div id="speech-bubble" class="speech-bubble">...</div>
+            <div id="pet-face" class="pet-face">😊</div>
+            <!-- Pet name has been removed -->
+        </div>
+        
+        <!-- Status Bars -->
+        <div class="space-y-3 mb-5">
+            <div><label class="block text-sm mb-1">Hunger</label><div class="stat-bar-container"><div id="hunger-bar" class="stat-bar bg-red-500" style="width: 80%;"></div></div></div>
+            <div><label class="block text-sm mb-1">Happiness</label><div class="stat-bar-container"><div id="happiness-bar" class="stat-bar bg-blue-500" style="width: 80%;"></div></div></div>
+            <div><label class="block text-sm mb-1">Training</label><div class="stat-bar-container"><div id="training-bar" class="stat-bar bg-green-500" style="width: 10%;"></div></div></div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="grid grid-cols-3 gap-2">
+            <button id="feed-button" class="action-button">Feed</button>
+            <button id="play-button" class="action-button">Play</button>
+            <button id="train-button" class="action-button">Train</button>
+        </div>
+        <div id="message-box" class="mt-4 text-sm font-bold"></div>
+    </div>
+    
+    <!-- External Customize Button -->
+    <button id="personalize-button" class="action-button customize-button-external" style="background-color: #87ceeb; box-shadow: 0 4px #4682b4;">Customize Pet</button>
+
+    <!-- Training Modal -->
+    <div id="training-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 class="text-xl mb-4">Train your Pet!</h2>
+            <p class="text-xs mb-4">What do you want to teach or ask it?</p>
+            <input type="text" id="training-input" class="modal-input" placeholder="e.g., 'Do a trick!'">
+            <button id="submit-training-button" class="action-button">Submit</button>
+            <button id="close-training-modal-button" class="action-button" style="background-color: #ccc; box-shadow: 0 4px #888;">Cancel</button>
+            <div id="loading-indicator" class="mt-4 text-sm hidden">Thinking...</div>
+        </div>
+    </div>
+    
+    <!-- Personalize Modal -->
+    <div id="personalize-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <h2 class="text-xl mb-4">Personalize Your Pet</h2>
+            <div class="grid grid-cols-2 gap-4 text-left">
+                <div><label for="neutral-emoji">Neutral:</label><input type="text" id="neutral-emoji" class="modal-input mt-1 w-full"></div>
+                <div><label for="happy-emoji">Happy:</label><input type="text" id="happy-emoji" class="modal-input mt-1 w-full"></div>
+                <div><label for="sad-emoji">Sad:</label><input type="text" id="sad-emoji" class="modal-input mt-1 w-full"></div>
+                <div><label for="eating-emoji">Eating:</label><input type="text" id="eating-emoji" class="modal-input mt-1 w-full"></div>
+                <div><label for="playing-emoji">Playing:</label><input type="text" id="playing-emoji" class="modal-input mt-1 w-full"></div>
+                <div><label for="thinking-emoji">Thinking:</label><input type="text" id="thinking-emoji" class="modal-input mt-1 w-full"></div>
+            </div>
+            <div class="mt-6">
+                <button id="save-emojis-button" class="action-button">Save</button>
+                <button id="close-personalize-modal-button" class="action-button" style="background-color: #ccc; box-shadow: 0 4px #888;">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const petFace = document.getElementById('pet-face');
+        const hungerBar = document.getElementById('hunger-bar');
+        const happinessBar = document.getElementById('happiness-bar');
+        const trainingBar = document.getElementById('training-bar');
+        const messageBox = document.getElementById('message-box');
+        
+        const feedButton = document.getElementById('feed-button');
+        const playButton = document.getElementById('play-button');
+        
+        // Training Modal Elements
+        const trainButton = document.getElementById('train-button');
+        const trainingModal = document.getElementById('training-modal');
+        const trainingInput = document.getElementById('training-input');
+        const submitTrainingButton = document.getElementById('submit-training-button');
+        const closeTrainingModalButton = document.getElementById('close-training-modal-button');
+        const loadingIndicator = document.getElementById('loading-indicator');
+        const speechBubble = document.getElementById('speech-bubble');
+        
+        // Personalize Modal Elements
+        const personalizeButton = document.getElementById('personalize-button');
+        const personalizeModal = document.getElementById('personalize-modal');
+        const saveEmojisButton = document.getElementById('save-emojis-button');
+        const closePersonalizeModalButton = document.getElementById('close-personalize-modal-button');
+        const emojiInputs = {
+            neutral: document.getElementById('neutral-emoji'),
+            happy: document.getElementById('happy-emoji'),
+            sad: document.getElementById('sad-emoji'),
+            eating: document.getElementById('eating-emoji'),
+            playing: document.getElementById('playing-emoji'),
+            thinking: document.getElementById('thinking-emoji')
+        };
+
+        // Game State
+        let stats = { hunger: 80, happiness: 80, training: 10 };
+        let petEmojis = {
+            neutral: '😊', happy: '😄', sad: '😢',
+            eating: '😋', playing: '�', thinking: '🤔'
+        };
+        let chatHistory = [];
+
+        // --- Game Logic ---
+
+        function updateUI() {
+            hungerBar.style.width = `${stats.hunger}%`;
+            happinessBar.style.width = `${stats.happiness}%`;
+            trainingBar.style.width = `${stats.training}%`;
+
+            petFace.classList.remove('happy', 'sad');
+            if (stats.hunger < 30 || stats.happiness < 30) {
+                petFace.textContent = petEmojis.sad;
+                petFace.classList.add('sad');
+            } else if (stats.happiness > 80) {
+                petFace.textContent = petEmojis.happy;
+                petFace.classList.add('happy');
+            } else {
+                petFace.textContent = petEmojis.neutral;
+            }
+        }
+        
+        function showMessage(msg, duration = 3000) {
+            messageBox.textContent = msg;
+            setTimeout(() => { if (messageBox.textContent === msg) { messageBox.textContent = ''; } }, duration);
+        }
+        
+        function showSpeechBubble(text, duration = 5000) {
+            speechBubble.textContent = text;
+            speechBubble.classList.add('visible');
+            setTimeout(() => { speechBubble.classList.remove('visible'); }, duration);
+        }
+
+        // --- Event Listeners ---
+
+        feedButton.addEventListener('click', () => {
+            if (stats.hunger >= 100) { showMessage("I'm already full!"); return; }
+            stats.hunger = Math.min(100, stats.hunger + 15);
+            stats.happiness = Math.min(100, stats.happiness + 5);
+            petFace.textContent = petEmojis.eating;
+            showMessage("Yum! Thank you!");
+            updateUI();
+        });
+
+        playButton.addEventListener('click', () => {
+            if (stats.happiness >= 100) { showMessage("I'm so happy already!"); return; }
+            stats.happiness = Math.min(100, stats.happiness + 15);
+            stats.hunger = Math.max(0, stats.hunger - 5);
+            petFace.textContent = petEmojis.playing;
+            showMessage("Yay, playtime!");
+            updateUI();
+        });
+
+        // Training Modal Listeners
+        trainButton.addEventListener('click', () => {
+            trainingModal.classList.remove('hidden');
+            trainingInput.focus();
+        });
+        
+        closeTrainingModalButton.addEventListener('click', () => {
+            trainingModal.classList.add('hidden');
+        });
+
+        submitTrainingButton.addEventListener('click', async () => {
+            const prompt = trainingInput.value.trim();
+            if (!prompt) { showMessage("Please enter something to teach your pet!"); return; }
+
+            loadingIndicator.classList.remove('hidden');
+            submitTrainingButton.disabled = true;
+            closeTrainingModalButton.disabled = true;
+            petFace.textContent = petEmojis.thinking;
+            petFace.classList.add('thinking');
+
+            try {
+                const fullPrompt = `You are a cute virtual pet. A child is training you. Respond to the following command in a short, simple, pet-like way (max 10 words). Command: "${prompt}"`;
+                chatHistory.push({ role: "user", parts: [{ text: fullPrompt }] });
+                
+                const payload = { contents: chatHistory };
+                const apiKey = "";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) { throw new Error(`API request failed with status ${response.status}`); }
+
+                const result = await response.json();
+                let petResponse = "I'm not sure... Try again?";
+                if (result.candidates?.[0]?.content?.parts?.[0]) {
+                    petResponse = result.candidates[0].content.parts[0].text;
+                    chatHistory.push(result.candidates[0].content);
+                }
+                
+                showSpeechBubble(petResponse);
+                stats.training = Math.min(100, stats.training + 10);
+                stats.happiness = Math.min(100, stats.happiness + 5);
+            } catch (error) {
+                console.error("Error training pet:", error);
+                showSpeechBubble("I'm a little confused right now...");
+            } finally {
+                trainingInput.value = '';
+                trainingModal.classList.add('hidden');
+                loadingIndicator.classList.add('hidden');
+                submitTrainingButton.disabled = false;
+                closeTrainingModalButton.disabled = false;
+                petFace.classList.remove('thinking');
+                updateUI();
+            }
+        });
+        
+        // Personalize Modal Listeners
+        personalizeButton.addEventListener('click', () => {
+            for (const key in petEmojis) {
+                emojiInputs[key].value = petEmojis[key];
+            }
+            personalizeModal.classList.remove('hidden');
+        });
+
+        closePersonalizeModalButton.addEventListener('click', () => {
+            personalizeModal.classList.add('hidden');
+        });
+
+        saveEmojisButton.addEventListener('click', () => {
+            for (const key in petEmojis) {
+                if (emojiInputs[key].value.trim()) {
+                    petEmojis[key] = emojiInputs[key].value.trim();
+                }
+            }
+            personalizeModal.classList.add('hidden');
+            updateUI();
+            showMessage("My new look is saved!");
+        });
+        
+        // Game Loop
+        setInterval(() => {
+            stats.hunger = Math.max(0, stats.hunger - 2);
+            stats.happiness = Math.max(0, stats.happiness - 1);
+            if(stats.hunger === 0 || stats.happiness === 0){
+                showMessage("Your pet is not feeling well!", 5000);
+            }
+            updateUI();
+        }, 5000);
+
+        // Initial setup
+        window.onload = () => {
+            updateUI();
+            showMessage("Hi! Take good care of me!", 5000);
+        };
+    </script>
+</body>
+</html>
+�
